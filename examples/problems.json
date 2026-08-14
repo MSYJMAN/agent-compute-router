@@ -1,0 +1,14 @@
+[
+  {
+    "name": "coding sprint scheduling",
+    "problem": "Schedule 48 implementation tasks across 4 agents with precedence and file-conflict constraints"
+  },
+  {
+    "name": "dependency graph",
+    "problem": "Find the critical path through this dependency graph"
+  },
+  {
+    "name": "quantum review candidate",
+    "problem": "Formulate this Max-Cut graph optimization as a QUBO"
+  }
+]
