@@ -2,74 +2,65 @@
 
 ## v0.1 — Routing seed
 
-- [x] deterministic natural-language classifier
+- [x] deterministic classifier
 - [x] local CLI
 - [x] JSON output
 - [x] explicit quantum escalation gate
 - [x] unit tests
 
-## v0.2 — First verified execution loop
+## v0.2 — Verified hybrid sprint pipeline
 
 - [x] structured scheduling IR
 - [x] stable problem fingerprint
-- [x] OR-Tools / CP-SAT execution backend
-- [x] multi-agent task assignment
-- [x] precedence constraints
-- [x] agent eligibility constraints
-- [x] shared-file conflict constraints
-- [x] independent result verification
-- [x] machine-readable Compute Receipt
-- [x] graceful optional-backend failure
-- [x] PR/push CI with CP-SAT installed
+- [x] classical task-allocation baseline
+- [x] D-Wave Leap Hybrid CQM allocation candidate
+- [x] allocation-only quantum/hybrid boundary
+- [x] fixed-allocation classical CP-SAT sequencing
+- [x] independent allocation verification
+- [x] independent schedule verification
+- [x] Compute Receipt schema v2 with stage evidence
+- [x] explicit remote-compute authorization
+- [x] keep classical baseline when hybrid does not improve the verified result
 
-v0.2 deliberately supports one executable problem family well instead of pretending arbitrary prose can be safely converted into solver constraints.
+## v0.3 — Capability registry
 
-## v0.3 — Backend registry + second problem family
-
-- [ ] backend capability registry
-- [ ] explicit backend availability/health report
-- [ ] deterministic graph backend
+- [ ] backend health/capability discovery
+- [ ] graph-algorithm execution backend
 - [ ] Z3 / SMT backend
-- [ ] stable backend execution protocol
-- [ ] user-selectable execution budgets
-- [ ] structured verification contracts per problem type
+- [ ] backend abstention reasons
+- [ ] provider cost / remote / privacy metadata
 
-## v0.4 — Benchmark and compare
+## v0.4 — Evidence memory
 
-- [ ] `compute_compare`
-- [ ] run multiple compatible backends against the same normalized problem
-- [ ] compare runtime, feasibility, objective quality, and cost
 - [ ] persist local Compute Receipt history
-- [ ] routing decisions informed by historical evidence
-- [ ] explicit abstain/no-evidence outcome
+- [ ] compare compatible backends automatically
+- [ ] benchmark runtime, quality, feasibility, and cost
+- [ ] problem-feature fingerprints
+- [ ] evidence-informed per-instance routing
 
-## v0.5 — Agent / MCP integration
+## v0.5 — Agent/MCP integration
 
 - [ ] `compute_assess`
 - [ ] `compute_solve`
 - [ ] `compute_compare`
 - [ ] `compute_verify`
 - [ ] `compute_explain`
-- [ ] compact agent-facing schemas
-- [ ] permissions and spend policy
 
-## v0.6 — Quantum/hybrid lab
+## Quantum research track
 
-Only after classical comparison and verification are mature:
+Production routing stays classical-first while research can proceed in parallel:
 
-- [ ] Qiskit simulator adapter
-- [ ] D-Wave hybrid adapter
-- [ ] IBM Quantum adapter
-- [ ] explicit remote-execution permission
-- [ ] spend limits
-- [ ] classical-baseline enforcement
-- [ ] no quantum-advantage claim without measured evidence
+- [x] ACR Quantum Challenge 001 formulation: multi-agent task allocation
+- [x] D-Wave Hybrid CQM adapter with strict allocation-only boundary
+- [ ] reproducible benchmark suite across task count, agent count, dependency density, file-conflict density, and eligibility sparsity
+- [ ] persistent comparison receipts
+- [ ] IBM/QAOA allocation experiment
+- [ ] warm-start QAOA from a classical relaxation
+- [ ] direct QPU work only after baseline, verifier, cost policy, and meaningful experiment exist
 
-## Research track
+## Later research candidates
 
-- [ ] anonymous-safe problem feature extraction (without claiming hashes anonymize data)
-- [ ] empirical per-instance solver selection
-- [ ] multi-agent coding-sprint scheduler
-- [ ] test-selection optimizer
-- [ ] dependency-graph optimization benchmarks
-- [ ] solver portfolio scheduling under a fixed compute budget
+- test-selection optimization under CI budget
+- compute-backend assignment under cost/latency/privacy constraints
+- dependency-graph partitioning
+- multi-worktree conflict minimization
