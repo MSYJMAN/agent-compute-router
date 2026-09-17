@@ -8,7 +8,12 @@ class BackendUnavailable(RuntimeError):
     pass
 
 
-def solve(problem: SchedulingProblem, *, max_seconds: float = 10.0) -> BackendResult:
+def solve(
+    problem: SchedulingProblem,
+    *,
+    max_seconds: float = 10.0,
+    fixed_allocation: dict[str, str] | None = None,
+) -> BackendResult:
     if max_seconds <= 0:
         raise ValueError("max_seconds must be greater than zero")
 
@@ -22,7 +27,6 @@ def solve(problem: SchedulingProblem, *, max_seconds: float = 10.0) -> BackendRe
 
     model = cp_model.CpModel()
     horizon = sum(task.duration for task in problem.tasks)
-
     starts = {}
     ends = {}
     task_intervals = {}
@@ -35,24 +39,25 @@ def solve(problem: SchedulingProblem, *, max_seconds: float = 10.0) -> BackendRe
         model.add(end == start + task.duration)
         starts[task.id] = start
         ends[task.id] = end
-        task_intervals[task.id] = model.new_interval_var(
-            start, task.duration, end, f"task_{task.id}"
-        )
+        task_interval = model.new_interval_var(start, task.duration, end, f"task_{task.id}")
+        task_intervals[task.id] = task_interval
 
-        literals = []
-        for agent in task.eligible_agents:
-            assigned = model.new_bool_var(f"assign_{task.id}_{agent}")
-            interval = model.new_optional_interval_var(
-                start,
-                task.duration,
-                end,
-                assigned,
-                f"agent_{agent}_{task.id}",
-            )
-            assignment_literals[(task.id, agent)] = assigned
-            agent_intervals[agent].append(interval)
-            literals.append(assigned)
-        model.add_exactly_one(literals)
+        if fixed_allocation is not None:
+            agent = fixed_allocation.get(task.id)
+            if agent not in task.eligible_agents:
+                raise ValueError(f"fixed allocation for task {task.id!r} is missing or ineligible")
+            agent_intervals[agent].append(task_interval)
+        else:
+            literals = []
+            for agent in task.eligible_agents:
+                assigned = model.new_bool_var(f"assign_{task.id}_{agent}")
+                interval = model.new_optional_interval_var(
+                    start, task.duration, end, assigned, f"agent_{agent}_{task.id}"
+                )
+                assignment_literals[(task.id, agent)] = assigned
+                agent_intervals[agent].append(interval)
+                literals.append(assigned)
+            model.add_exactly_one(literals)
 
     for task in problem.tasks:
         for dependency in task.depends_on:
@@ -81,29 +86,27 @@ def solve(problem: SchedulingProblem, *, max_seconds: float = 10.0) -> BackendRe
 
     status = solver.solve(model)
     status_name = solver.status_name(status)
-    metrics: dict[str, int | float | str] = {
+    metrics: dict[str, int | float | str | bool] = {
         "wall_time_seconds": solver.wall_time,
         "branches": solver.num_branches,
         "conflicts": solver.num_conflicts,
         "search_workers": 1,
         "random_seed": 0,
+        "fixed_allocation": fixed_allocation is not None,
     }
 
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        return BackendResult(
-            status=status_name,
-            assignments={},
-            objective_value=None,
-            metrics=metrics,
-        )
+        return BackendResult(status=status_name, assignments={}, objective_value=None, metrics=metrics)
 
     assignments: dict[str, TaskAssignment] = {}
     for task in problem.tasks:
-        selected_agent = next(
-            agent
-            for agent in task.eligible_agents
-            if solver.value(assignment_literals[(task.id, agent)]) == 1
-        )
+        if fixed_allocation is not None:
+            selected_agent = fixed_allocation[task.id]
+        else:
+            selected_agent = next(
+                agent for agent in task.eligible_agents
+                if solver.value(assignment_literals[(task.id, agent)]) == 1
+            )
         assignments[task.id] = TaskAssignment(
             agent=selected_agent,
             start=int(solver.value(starts[task.id])),

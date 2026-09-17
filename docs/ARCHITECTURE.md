@@ -1,70 +1,44 @@
 # Architecture
 
-## v0.1
+## v0.2 execution boundary
+
+ACR decomposes multi-agent development planning into allocation and sequencing.
 
 ```text
-problem text
-    |
-    v
-transparent deterministic classifier
-    |
-    v
-routing policy
-    |
-    v
-RoutingDecision
-    |
-    +--> human-readable CLI
-    `--> JSON for agent integration
+SchedulingProblem
+      |
+      v
+local validation
+      |
+      +-----------------------+
+      |                       |
+      v                       v
+CP-SAT allocation       D-Wave Hybrid CQM
+classical baseline      allocation candidate
+      |                 task -> agent only
+      +-----------+-----------+
+                  |
+                  v
+       classical CP-SAT sequencing
+  fixed ownership + precedence + file locks
+                  |
+                  v
+       independent classical verifier
+                  |
+                  v
+             Compute Receipt
 ```
 
-No remote calls occur in v0.1.
+### Hybrid trust boundary
 
-## Target architecture
+The remote CQM may contain binary task-to-agent variables, an auxiliary maximum-load variable, assignment constraints, agent-load constraints, and allocation-quality objective terms.
 
-```text
-AI agent / MCP client
-        |
-        v
-  problem normalizer
-        |
-        v
- structured problem IR
-        |
-        v
-   compute router
-        |
-   +----+---------+---------+----------+
-   |              |         |          |
- graph          SAT/SMT   CP/MILP   numerical
-   |              |         |          |
-   +--------------+----+----+----------+
-                       |
-                       v
-                 benchmark layer
-                       |
-             +---------+---------+
-             |                   |
-         classical          quantum/hybrid
-             |                   |
-             +---------+---------+
-                       |
-                       v
-                  verifier
-                       |
-                       v
-                    agent
-```
+It must not contain start/end times, task intervals, precedence-time constraints, file-lock timing, or final verification logic. CI inspects this boundary.
 
-## Required backend contract (planned)
+### Baseline-before-belief
 
-A future backend should expose conceptually:
+A hybrid candidate is accepted only when its allocation passes local validation, its fixed ownership can be sequenced by CP-SAT, the schedule passes independent verification, and the verified outcome beats the classical allocation baseline.
 
-- `capabilities()`
-- `health()`
-- `estimate_cost(problem)`
-- `solve(problem)`
-- `verify(result)` or provide enough data for an independent verifier
-- `benchmark(problem)`
+### Remote compute policy
 
-Provider-specific credentials should remain outside model context.
+Installing Ocean does not authorize remote execution. `--allow-remote` is required before Leap can be contacted. Credentials remain in Ocean's normal provider configuration rather than ACR inputs or receipts.

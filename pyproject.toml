@@ -22,6 +22,11 @@ classifiers = [
 
 [project.optional-dependencies]
 cp-sat = ["ortools>=9.10,<10"]
+quantum-hybrid = ["dwave-ocean-sdk>=9.4,<10"]
+full = [
+  "ortools>=9.10,<10",
+  "dwave-ocean-sdk>=9.4,<10"
+]
 
 [project.scripts]
 compute-router = "compute_router.cli:main"

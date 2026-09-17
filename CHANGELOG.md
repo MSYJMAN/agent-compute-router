@@ -4,21 +4,7 @@ All notable changes to Agent Compute Router are documented in this file.
 
 The project follows Semantic Versioning: `MAJOR.MINOR.PATCH`.
 
-- **MAJOR**: incompatible or architectural breaking changes.
-- **MINOR**: backward-compatible features or meaningful capability additions.
-- **PATCH**: backward-compatible bug fixes, docs corrections, or small reliability improvements.
-
 ## [Unreleased]
-
-### Added
-
-- Nothing yet.
-
-### Changed
-
-- Nothing yet.
-
-### Fixed
 
 - Nothing yet.
 
@@ -28,31 +14,36 @@ The project follows Semantic Versioning: `MAJOR.MINOR.PATCH`.
 
 - Structured scheduling problem IR with validation for tasks, durations, dependencies, eligible agents, and file ownership.
 - Stable SHA-256 problem fingerprints over normalized structured inputs.
-- Optional OR-Tools CP-SAT execution backend.
-- Multi-agent makespan minimization with precedence, agent-capacity, eligibility, and shared-file conflict constraints.
-- Independent schedule verification that does not trust solver status alone.
-- Machine-readable **Compute Receipts** containing route, backend, solver status, runtime, objective, verification evidence, solution, and backend metrics.
-- `compute-router solve` command for structured scheduling JSON.
-- CI workflow that installs the CP-SAT extra and runs the full test suite on Python 3.11 and 3.12.
+- Classical OR-Tools CP-SAT task-allocation baseline.
+- Optional D-Wave Leap Hybrid CQM task-to-agent allocator.
+- Strict quantum/hybrid boundary: remote compute may choose task ownership only; all timing, precedence, interval sequencing, shared-file locking, and final verification stay classical.
+- Allocation objective that prioritizes maximum agent load, then dependency handoffs and shared-file ownership splits.
+- Classical CP-SAT sequencing with fixed task ownership.
+- Independent allocation verification and final schedule verification.
+- Evidence-based comparison that retains a hybrid allocation only when its verified classical schedule beats the classical baseline.
+- Explicit `--allow-remote` gate before any D-Wave Leap submission.
+- Compute Receipt schema v2 with per-stage evidence.
+- CI guardrail that inspects the CQM and rejects timing/sequencing variables from the hybrid boundary.
 
 ### Changed
 
-- Package version advanced to `0.2.0`.
-- Release verification now installs the CP-SAT extra before running tests.
-- The roadmap now treats quantum as a later benchmark backend, after verified classical execution and comparison.
+- `solve` now supports `--allocator hybrid|classical` and optional `--hybrid-seconds`.
+- `full` installs both OR-Tools and D-Wave Ocean SDK 9.x for local/CI model tests; live D-Wave credentials are not required for CI.
+- Release verification installs all optional execution dependencies before publishing.
 
-### Evidence
+### Evidence policy
 
-- Existing v0.1 routing tests remain in place.
-- New tests cover invalid scheduling IR, dependency cycles, independent verification, shared-file conflicts, and CP-SAT execution.
-- CP-SAT runs with one worker and a fixed seed in v0.2 to prioritize reproducibility over maximum throughput.
+- A classical allocation baseline is always computed first.
+- Hybrid allocation must pass classical validation.
+- Hybrid allocation is sequenced by the same classical CP-SAT scheduler as the baseline.
+- Final schedules are independently verified.
+- This release makes no claim of quantum advantage.
 
 ### Known limitations
 
-- v0.2 executes only the constrained scheduling problem family.
-- Natural-language `assess` remains a transparent heuristic classifier and is not used to invent solver constraints.
-- OR-Tools is optional and must be installed with the `cp-sat` extra to execute schedules.
-- No benchmark portfolio, MCP server, GPU backend, hybrid quantum service, or QPU execution exists yet.
+- A live D-Wave benchmark requires operator-supplied Leap credentials and may incur provider usage/cost.
+- v0.2 supports one optimization family: multi-agent development sprint allocation + scheduling.
+- No persistent receipt database, MCP server, IBM/QAOA execution, or direct QPU execution exists yet.
 
 ## [0.1.0] - 2026-08-14
 
@@ -63,8 +54,3 @@ The project follows Semantic Versioning: `MAJOR.MINOR.PATCH`.
 - Local CLI and JSON output.
 - Explicit quantum-escalation gate.
 - Local-first operation with no cloud or quantum account required.
-
-### Known limitations
-
-- v0.1.0 assesses and routes only.
-- External solvers, GPUs, hybrid services, and QPUs are not executed.

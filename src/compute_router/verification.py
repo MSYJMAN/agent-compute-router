@@ -10,6 +10,31 @@ def _overlaps(left: TaskAssignment, right: TaskAssignment) -> bool:
     return max(left.start, right.start) < min(left.end, right.end)
 
 
+def verify_allocation(
+    problem: SchedulingProblem,
+    allocation: dict[str, str],
+) -> tuple[bool, tuple[str, ...]]:
+    violations: list[str] = []
+    task_by_id = {task.id: task for task in problem.tasks}
+    expected = set(task_by_id)
+    actual = set(allocation)
+
+    for task_id in sorted(expected - actual):
+        violations.append(f"missing allocation for task {task_id!r}")
+    for task_id in sorted(actual - expected):
+        violations.append(f"allocation references unknown task {task_id!r}")
+
+    for task_id in sorted(expected & actual):
+        agent = allocation[task_id]
+        task = task_by_id[task_id]
+        if agent not in problem.agents:
+            violations.append(f"task {task_id!r} uses unknown agent {agent!r}")
+        elif agent not in task.eligible_agents:
+            violations.append(f"task {task_id!r} is allocated to ineligible agent {agent!r}")
+
+    return not violations, tuple(violations)
+
+
 def verify_schedule(
     problem: SchedulingProblem,
     assignments: dict[str, TaskAssignment],
@@ -30,9 +55,7 @@ def verify_schedule(
         if assignment.agent not in problem.agents:
             violations.append(f"task {task_id!r} uses unknown agent {assignment.agent!r}")
         elif assignment.agent not in task.eligible_agents:
-            violations.append(
-                f"task {task_id!r} is assigned to ineligible agent {assignment.agent!r}"
-            )
+            violations.append(f"task {task_id!r} is assigned to ineligible agent {assignment.agent!r}")
         if assignment.start < 0:
             violations.append(f"task {task_id!r} starts before time zero")
         if assignment.end - assignment.start != task.duration:
@@ -49,8 +72,7 @@ def verify_schedule(
                 continue
             if assignments[task.id].start < assignments[dependency].end:
                 violations.append(
-                    f"dependency violation: task {task.id!r} starts before "
-                    f"{dependency!r} completes"
+                    f"dependency violation: task {task.id!r} starts before {dependency!r} completes"
                 )
 
     assigned_items = [(task_id, assignments[task_id]) for task_id in sorted(expected & actual)]
@@ -63,8 +85,7 @@ def verify_schedule(
         shared_files = sorted(set(task_by_id[left_id].files) & set(task_by_id[right_id].files))
         if shared_files and _overlaps(left, right):
             violations.append(
-                f"file conflict: {left_id!r} and {right_id!r} overlap on "
-                f"{', '.join(shared_files)}"
+                f"file conflict: {left_id!r} and {right_id!r} overlap on {', '.join(shared_files)}"
             )
 
     return not violations, tuple(violations)

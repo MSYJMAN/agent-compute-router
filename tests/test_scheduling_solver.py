@@ -19,12 +19,19 @@ class CpSatSolveTests(unittest.TestCase):
                 ],
             }
         )
-        receipt = solve_schedule(problem, max_seconds=5)
+        receipt = solve_schedule(
+            problem,
+            max_seconds=5,
+            allocator="hybrid",
+            allow_remote=False,
+        )
         self.assertIn(receipt.solver_status, {"OPTIMAL", "FEASIBLE"})
         self.assertTrue(receipt.verified)
         self.assertEqual(receipt.violations, ())
         self.assertEqual(receipt.objective_value, 7)
-        self.assertEqual(receipt.route.quantum_escalation, "NO")
+        self.assertEqual(receipt.route.quantum_escalation, "REVIEW")
+        self.assertEqual(receipt.metrics["quantum_boundary"], "task-to-agent-allocation-only")
+        self.assertTrue(any(stage.status == "REMOTE_NOT_AUTHORIZED" for stage in receipt.stages))
 
     def test_file_conflict_is_serialized_even_across_agents(self):
         problem = SchedulingProblem.from_dict(
@@ -36,7 +43,7 @@ class CpSatSolveTests(unittest.TestCase):
                 ],
             }
         )
-        receipt = solve_schedule(problem, max_seconds=5)
+        receipt = solve_schedule(problem, max_seconds=5, allocator="classical")
         self.assertTrue(receipt.verified)
         self.assertEqual(receipt.objective_value, 6)
 
