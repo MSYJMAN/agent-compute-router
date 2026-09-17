@@ -1,6 +1,7 @@
 """Agent Compute Router."""
 
-from .router import assess
+from .ir import SchedulingProblem, TaskSpec
+from .router import assess, solve_schedule
 
-__all__ = ["assess"]
-__version__ = "0.1.0"
+__all__ = ["SchedulingProblem", "TaskSpec", "assess", "solve_schedule"]
+__version__ = "0.2.0"

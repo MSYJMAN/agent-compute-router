@@ -1,74 +1,171 @@
 # Agent Compute Router
 
-**Give AI agents better instincts about where computation belongs.**
+**Give AI agents better instincts about where computation belongs — and evidence for what happened next.**
 
-Agent Compute Router (ACR) is an experimental routing layer for AI coding agents. It helps an agent recognize when a problem should stay with the LLM, move to a deterministic algorithm, use a specialized classical solver, or be evaluated for quantum/hybrid computation.
+Agent Compute Router (ACR) is an experimental, local-first routing and execution layer for AI coding agents. It helps an agent recognize when a problem should stay with the LLM, move to a deterministic algorithm, use a specialized classical solver, or later be evaluated for accelerator or quantum/hybrid computation.
 
 > AI agents are good at reasoning. They should not have to solve every problem by reasoning alone.
 
 ## The problem
 
-Modern coding agents are being asked to do much more than write code. They plan implementation work, schedule tasks, analyze dependency graphs, allocate resources, reduce test suites, coordinate parallel agents, and search large configuration spaces.
+Coding agents increasingly plan implementation work, schedule tasks, analyze dependency graphs, allocate resources, reduce test suites, coordinate parallel workers, and search large configuration spaces.
 
 Some of those are language problems.
 
 Some are not.
 
-A constrained scheduling problem may belong in CP-SAT. A dependency problem may belong in a graph algorithm. A satisfiability problem may belong in Z3. A numerical search may belong in an optimizer. And, in a much smaller set of cases, a problem may be worth benchmarking on quantum or quantum-hybrid infrastructure.
+A constrained schedule may belong in CP-SAT. A dependency problem may belong in a graph algorithm. A satisfiability problem may belong in Z3. A numerical search may belong in an optimizer. A much smaller set of problems may eventually justify a quantum or hybrid benchmark.
 
-ACR is designed to make that distinction explicit.
+ACR makes that boundary explicit.
 
-## What ACR does
+## What changed in v0.2
 
-ACR sits between an AI agent and the compute tools available to it:
-
-```text
-AI agent
-   |
-   v
-Agent Compute Router
-   |
-   +--> direct deterministic method
-   +--> graph algorithm
-   +--> SAT / SMT
-   +--> constraint solver
-   +--> numerical optimizer
-   +--> GPU / accelerator
-   +--> quantum simulator
-   +--> hybrid quantum solver
-   `--> real QPU
-```
-
-The goal is simple:
-
-**Match the problem to the right kind of computation before spending more reasoning, time, money, or infrastructure than necessary.**
-
-## Why this is useful
-
-Without a routing layer, an AI agent may try to reason heuristically through a problem that already has a much better computational tool available.
-
-For example:
+v0.1 could answer:
 
 ```text
-"Allocate 40 implementation tasks across 4 agents while respecting
-file conflicts, dependencies, and execution order."
+"This looks like constrained scheduling. Try CP-SAT."
 ```
 
-That is not primarily a prose-generation problem. It is a constrained scheduling problem.
+v0.2 can execute one problem family end-to-end:
 
-ACR can classify it accordingly:
+```text
+structured scheduling problem
+        |
+        v
+validate problem contract
+        |
+        v
+route to CP-SAT
+        |
+        v
+solve
+        |
+        v
+independently verify
+        |
+        v
+emit Compute Receipt
+```
+
+The v0.2 scheduling model supports:
+
+- multiple agents
+- integer task durations
+- task dependencies
+- per-task eligible agents
+- shared-file conflict prevention
+- makespan minimization
+- bounded solve time
+- reproducible CP-SAT defaults
+
+v0.2 intentionally solves **one structured problem family well** instead of pretending arbitrary natural language can be safely converted into optimization constraints.
+
+## Compute Receipts
+
+Every executable solve returns a **Compute Receipt**: a machine-readable evidence record containing:
+
+- normalized problem SHA-256 fingerprint
+- routing decision
+- backend used
+- solver status
+- runtime
+- objective value
+- independent verification result
+- constraint violations, if any
+- returned solution
+- backend metrics
+- quantum-escalation decision
+
+This is the foundation for future benchmarking and empirical routing.
+
+See [`docs/COMPUTE_RECEIPTS.md`](docs/COMPUTE_RECEIPTS.md).
+
+## Quick start
+
+Requires Python 3.11+.
+
+Install the lightweight routing core:
+
+```bash
+python -m pip install -e .
+```
+
+Assess a natural-language subproblem:
+
+```bash
+compute-router assess "Schedule 50 tasks across 4 agents with precedence constraints"
+```
+
+For executable scheduling, install the optional CP-SAT backend:
+
+```bash
+python -m pip install -e ".[cp-sat]"
+```
+
+Then solve the included example:
+
+```bash
+compute-router solve examples/scheduling.json
+```
+
+Machine-readable output:
+
+```bash
+compute-router solve examples/scheduling.json --json
+```
+
+## Scheduling input
+
+v0.2 does **not** ask the classifier to invent hard constraints from prose.
+
+The solver receives structured JSON:
 
 ```json
 {
-  "classification": "constrained_scheduling",
-  "recommended_backend": "cp-sat",
-  "quantum_escalation": "NO",
-  "reason": "Discrete scheduling with precedence and assignment constraints maps naturally to constraint programming.",
-  "alternatives": ["milp", "heuristic-planner"]
+  "agents": ["dev-a", "dev-b"],
+  "tasks": [
+    {
+      "id": "schema",
+      "duration": 3,
+      "files": ["src/schema.py"]
+    },
+    {
+      "id": "api",
+      "duration": 2,
+      "depends_on": ["schema"],
+      "eligible_agents": ["dev-a", "dev-b"],
+      "files": ["src/api.py"]
+    }
+  ],
+  "objective": "minimize_makespan"
 }
 ```
 
-The agent can then spend its reasoning on understanding the task and interpreting the result instead of manually searching the solution space.
+If `eligible_agents` is omitted, all declared agents are eligible.
+
+Input validation rejects unknown dependencies, dependency cycles, invalid durations, duplicate identifiers, and unknown agents before a solver runs.
+
+## Independent verification
+
+A solver returning `OPTIMAL` is not, by itself, ACR's definition of verified.
+
+After CP-SAT returns a schedule, ACR independently checks:
+
+- every expected task is assigned
+- no unknown task appears
+- assigned agents are valid and eligible
+- durations match
+- dependencies are respected
+- one agent is not running overlapping tasks
+- tasks touching the same declared file do not overlap
+
+Only then does the receipt report `verified: true`.
+
+## Why CP-SAT first
+
+OR-Tools CP-SAT is designed for discrete constraint and scheduling problems. It gives ACR a real specialist backend for a problem class coding agents commonly encounter: allocating work under dependencies and conflicts.
+
+The initial backend runs with one search worker and a fixed seed to favor reproducibility. Later benchmark work can evaluate faster parallel configurations.
 
 ## Quantum is not the product
 
@@ -76,191 +173,133 @@ ACR is **not** a "send hard problems to a quantum computer" wrapper.
 
 Complexity alone is not evidence that quantum hardware is appropriate.
 
-A quantum or quantum-hybrid backend should only be considered when the problem has a compatible mathematical structure and there is a meaningful reason to benchmark it against classical methods.
+A quantum or quantum-hybrid backend should only be considered when:
 
-For example:
-
-```bash
-compute-router assess --json "Formulate this Max-Cut graph optimization as a QUBO"
-```
-
-ACR may identify that as a quantum-compatible candidate, but the expected workflow is still:
-
-```text
-formalize problem
-      |
-      v
-establish classical baseline
-      |
-      v
-consider quantum / hybrid candidate
-      |
-      v
-compare results
-      |
-      v
-verify constraints
-```
+1. the problem has a compatible mathematical formulation,
+2. a classical baseline exists,
+3. there is a meaningful experiment to run,
+4. outputs can be independently verified,
+5. cost and remote-execution policy permit it.
 
 A QPU has to **earn the escalation**.
 
-## v0.1
+IBM/Qiskit already provides agent-facing access to quantum tooling through MCP. ACR's intended role is different: decide when specialized computation is justified, execute through replaceable backends, verify outcomes, and accumulate comparable evidence.
 
-The first release intentionally keeps the surface area small.
-
-Current capabilities:
-
-- deterministic workload classification
-- explainable compute recommendations
-- local CLI
-- JSON output for agent/tool integration
-- explicit quantum-escalation gate
-- no required cloud account
-- no required quantum account
-- no paid execution
-- no unsupported claims of quantum advantage
-
-**v0.1 assesses and routes. It does not yet execute external solvers, GPUs, hybrid services, or QPUs.**
-
-That limitation is deliberate: first make routing inspectable and testable, then add execution backends.
-
-## Quick start
-
-Requires Python 3.11+.
-
-```bash
-python -m pip install -e .
-```
-
-Assess a problem:
-
-```bash
-compute-router assess "Allocate 40 coding tasks across 4 agents with dependency and file-conflict constraints"
-```
-
-Request machine-readable output:
-
-```bash
-compute-router assess --json "Find an optimal schedule for tasks with precedence constraints"
-```
-
-## Example workloads
-
-ACR is aimed at problems such as:
-
-- multi-agent task scheduling
-- dependency-aware build planning
-- test-suite selection
-- resource allocation
-- graph partitioning
-- assignment problems
-- routing problems
-- bin packing
-- set cover
-- SAT / SMT-style constraints
-- configuration search
-- numerical optimization
-- selected quantum-compatible formulations such as QUBO / Ising problems
-
-It is **not** intended to replace the LLM for ordinary coding, debugging, documentation, UI generation, or general reasoning.
-
-## Design principles
-
-ACR follows a few core rules:
-
-1. **Use the simplest backend that fits the problem.**
-2. **Do not confuse difficulty with quantum suitability.**
-3. **Prefer deterministic and classical methods when they are sufficient.**
-4. **Establish a classical baseline before making quantum comparisons.**
-5. **Verify solver outputs against the original constraints.**
-6. **Keep backends replaceable instead of coupling the router to one provider.**
-7. **Explain why a route was chosen.**
-8. **Measure before claiming an advantage.**
-
-See [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md).
-
-## Where this could go
-
-The long-term idea is a small compute-selection layer that coding agents can call automatically:
+## Current architecture
 
 ```text
-compute_assess
-compute_solve
-compute_compare
-compute_verify
-compute_explain
+natural language
+      |
+      v
+deterministic assessor
+      |
+      +-----------------------------+
+                                    |
+structured scheduling IR            |
+      |                             |
+      v                             |
+validation                          |
+      |                             |
+      v                             |
+routing decision <------------------+
+      |
+      v
+OR-Tools CP-SAT
+      |
+      v
+independent verifier
+      |
+      v
+Compute Receipt
 ```
 
-Potential integrations include:
-
-- AI coding agents
-- MCP-compatible clients
-- CI and test planners
-- repository intelligence systems
-- multi-agent coding orchestration
-- local optimization toolchains
-- classical solver services
-- GPU compute
-- quantum simulators
-- hybrid quantum services
-- real QPUs
-
-The important part is not how many backends are supported.
-
-The important part is whether the router can reliably answer:
-
-> **What kind of computation should solve this part of the problem?**
-
-## Roadmap
-
-Near-term priorities:
-
-1. structured problem intermediate representation (IR)
-2. explicit variables, objectives, and constraints
-3. OR-Tools / CP-SAT backend
-4. Z3 backend
-5. result verification layer
-6. backend benchmarking
-7. MCP tool interface
-8. optional quantum simulator and hybrid-provider adapters
-
-See [`docs/ROADMAP.md`](docs/ROADMAP.md).
-
-## Repository layout
+Current source layout:
 
 ```text
 src/compute_router/
-  cli.py          CLI
-  classifier.py   workload classification
-  models.py       typed routing result
-  router.py       routing policy
-
-tests/            executable unit tests
-docs/             architecture, principles, roadmap
-examples/         example problem inputs
+  classifier.py       transparent natural-language assessment
+  ir.py               structured scheduling contract + fingerprint
+  router.py           routing and execution policy
+  verification.py     independent result verification
+  models.py           routing/result/receipt models
+  cli.py              command line interface
+  backends/
+    cp_sat.py         OR-Tools CP-SAT backend
 ```
+
+## Design principles
+
+1. Use the simplest backend that fits the problem.
+2. Do not confuse difficulty with quantum suitability.
+3. Keep natural-language understanding separate from hard solver constraints.
+4. Prefer deterministic and classical methods when sufficient.
+5. Independently verify computed results.
+6. Keep backends replaceable.
+7. Explain why a route was chosen.
+8. Measure before claiming an advantage.
+9. Preserve graceful degradation when optional backends are unavailable.
+10. Emit evidence that future routing decisions can learn from.
+
+## What ACR is not yet
+
+ACR is still pre-alpha.
+
+It does not yet provide:
+
+- arbitrary natural-language-to-optimization compilation
+- a backend capability registry
+- Z3 execution
+- graph execution backends
+- solver portfolio comparison
+- persistent benchmark history
+- MCP tools
+- GPU routing
+- D-Wave integration
+- Qiskit execution
+- real QPU execution
+
+Those omissions are intentional.
+
+## Roadmap
+
+**v0.3:** backend registry, health/capability reporting, graph + SMT backends.
+
+**v0.4:** compare compatible backends, store local Compute Receipt history, and begin evidence-informed routing.
+
+**v0.5:** MCP/agent interface.
+
+**v0.6:** quantum/hybrid lab, only after classical benchmarking and verification are mature.
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## Tests
+
+Run the base tests:
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -v
+```
+
+To exercise the executable backend, install the CP-SAT extra first:
+
+```bash
+python -m pip install -e ".[cp-sat]"
+python -m unittest discover -s tests -v
+```
+
+GitHub CI installs the CP-SAT extra and runs the full suite on Python 3.11 and 3.12.
 
 ## Project status
 
 **Experimental / pre-alpha.**
 
-The current implementation is intentionally narrow. The project is looking for evidence that compute routing improves agent workflows before expanding the backend catalog.
+The project is looking for evidence that compute routing improves agent workflows before expanding the backend catalog.
 
-If you are interested in AI agents, optimization, solver selection, heterogeneous compute, or practical quantum experimentation, contributions and critique are welcome.
+Contributions are especially useful around structured problem types, independent verification, benchmark methodology, classical solver adapters, agent integration, and carefully justified accelerator or quantum experiments.
 
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-Useful contributions include:
-
-- better workload classification
-- reproducible routing benchmarks
-- new structured problem types
-- classical solver adapters
-- verification strategies
-- MCP integration
-- carefully justified accelerator or quantum backends
 
 ## License
 
