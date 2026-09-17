@@ -26,6 +26,11 @@ def build_cqm(problem: SchedulingProblem):
     The model deliberately contains no start-time, end-time, interval, or
     sequencing variables. Quantum-hybrid compute is permitted to choose only
     task-to-agent ownership.
+
+    Mixed binary/integer expressions are built explicitly as QuadraticModel
+    instances. This avoids relying on symbolic arithmetic between Binary
+    variables (represented by BQMs) and Integer variables (represented by QMs),
+    which current dimod versions do not support for comparisons.
     """
     try:
         import dimod
@@ -37,48 +42,96 @@ def build_cqm(problem: SchedulingProblem):
 
     cqm = dimod.ConstrainedQuadraticModel()
     task_by_id = {task.id: task for task in problem.tasks}
-    x: dict[tuple[str, str], Any] = {}
+    variable_labels: dict[tuple[str, str], str] = {}
 
+    # Allocation variables only: x::<task>::<agent>.
+    # Each task must be assigned to exactly one eligible agent.
     for task in problem.tasks:
-        task_vars = []
+        labels: list[str] = []
         for agent in task.eligible_agents:
-            variable = dimod.Binary(f"x::{task.id}::{agent}")
-            x[(task.id, agent)] = variable
-            task_vars.append(variable)
-        cqm.add_discrete(sum(task_vars), label=f"assign::{task.id}")
+            label = f"x::{task.id}::{agent}"
+            cqm.add_variable("BINARY", label)
+            variable_labels[(task.id, agent)] = label
+            labels.append(label)
+        cqm.add_discrete(labels, label=f"assign::{task.id}")
 
     total_duration = sum(task.duration for task in problem.tasks)
-    max_load = dimod.Integer(
-        "allocation::max_load",
+    max_load_label = "allocation::max_load"
+    cqm.add_variable(
+        "INTEGER",
+        max_load_label,
         lower_bound=0,
         upper_bound=total_duration,
     )
 
+    # For every agent: sum(duration_i * x_i,a) <= max_load.
+    # Build each mixed binary/integer constraint as a QuadraticModel explicitly.
     for agent in problem.agents:
-        load = sum(
-            task.duration * x[(task.id, agent)]
-            for task in problem.tasks
-            if (task.id, agent) in x
+        lhs = dimod.QuadraticModel()
+        lhs.add_variable(
+            "INTEGER",
+            max_load_label,
+            lower_bound=0,
+            upper_bound=total_duration,
         )
-        cqm.add_constraint(load <= max_load, label=f"load::{agent}")
+        lhs.add_linear(max_load_label, -1)
 
-    objective = primary_weight(problem) * max_load
+        for task in problem.tasks:
+            label = variable_labels.get((task.id, agent))
+            if label is None:
+                continue
+            lhs.add_variable("BINARY", label)
+            lhs.add_linear(label, task.duration)
+
+        cqm.add_constraint_from_model(
+            lhs,
+            sense="<=",
+            rhs=0,
+            label=f"load::{agent}",
+            copy=False,
+        )
+
+    # Build the objective explicitly as one mixed-type QuadraticModel:
+    #   primary_weight * max_load
+    #   + handoff penalties
+    #   + shared-file ownership-split penalties
+    objective = dimod.QuadraticModel()
+    objective.add_variable(
+        "INTEGER",
+        max_load_label,
+        lower_bound=0,
+        upper_bound=total_duration,
+    )
+    objective.add_linear(max_load_label, primary_weight(problem))
+
+    for label in variable_labels.values():
+        objective.add_variable("BINARY", label)
 
     for left, right in dependency_pairs(problem):
+        objective.add_offset(HANDOFF_WEIGHT)
         common = (
             set(task_by_id[left].eligible_agents)
             & set(task_by_id[right].eligible_agents)
         )
-        same_agent = sum(x[(left, agent)] * x[(right, agent)] for agent in common)
-        objective += HANDOFF_WEIGHT * (1 - same_agent)
+        for agent in common:
+            objective.add_quadratic(
+                variable_labels[(left, agent)],
+                variable_labels[(right, agent)],
+                -HANDOFF_WEIGHT,
+            )
 
     for left, right in file_conflict_pairs(problem):
+        objective.add_offset(FILE_SPLIT_WEIGHT)
         common = (
             set(task_by_id[left].eligible_agents)
             & set(task_by_id[right].eligible_agents)
         )
-        same_agent = sum(x[(left, agent)] * x[(right, agent)] for agent in common)
-        objective += FILE_SPLIT_WEIGHT * (1 - same_agent)
+        for agent in common:
+            objective.add_quadratic(
+                variable_labels[(left, agent)],
+                variable_labels[(right, agent)],
+                -FILE_SPLIT_WEIGHT,
+            )
 
     cqm.set_objective(objective)
     return cqm
