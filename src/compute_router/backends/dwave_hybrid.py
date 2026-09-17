@@ -108,7 +108,7 @@ def build_cqm(problem: SchedulingProblem):
         objective.add_variable("BINARY", label)
 
     for left, right in dependency_pairs(problem):
-        objective.add_offset(HANDOFF_WEIGHT)
+        objective.offset += HANDOFF_WEIGHT
         common = (
             set(task_by_id[left].eligible_agents)
             & set(task_by_id[right].eligible_agents)
@@ -121,7 +121,7 @@ def build_cqm(problem: SchedulingProblem):
             )
 
     for left, right in file_conflict_pairs(problem):
-        objective.add_offset(FILE_SPLIT_WEIGHT)
+        objective.offset += FILE_SPLIT_WEIGHT
         common = (
             set(task_by_id[left].eligible_agents)
             & set(task_by_id[right].eligible_agents)
