@@ -1,75 +1,70 @@
 # Compute Receipts
 
-A **Compute Receipt** is ACR's machine-readable record of what computation was performed and why the result should or should not be trusted.
+A Compute Receipt is ACR's machine-readable evidence record for a routed computation.
 
-The receipt exists because an agent saying "the solver found a good answer" is not evidence.
+## Why receipts exist
 
-For v0.2 a scheduling receipt records:
+Agent narration is not enough to establish that a specialist backend was appropriate, ran successfully, or returned a result that satisfied the original contract. Receipts preserve comparable evidence that can later support benchmarking and empirical routing.
 
-- a stable SHA-256 fingerprint of the normalized problem
-- the routing decision
-- the backend actually used
-- solver status
+## Schema v2
+
+A scheduling receipt records:
+
+- problem type and stable SHA-256 fingerprint
+- routing decision
+- selected backend pipeline
+- final solver status
+- end-to-end runtime
+- final makespan objective
+- independent verification result
+- final schedule and any violations
+- summary metrics and notes
+- an ordered list of compute stages
+
+Each stage can record:
+
+- stage name
+- backend
+- status
 - runtime
-- objective name and value
-- independently verified constraint status
-- any violations
-- the returned assignment schedule
-- backend metrics such as branches and conflicts
-- notes such as a missing optional backend
-- the quantum-escalation decision
+- stage-specific objective
+- independent verification status
+- violations
+- backend metrics
+- notes
 
-Example shape:
+## v0.2 hybrid sprint stages
 
-```json
-{
-  "schema_version": "1",
-  "problem_type": "constrained_scheduling",
-  "problem_sha256": "...",
-  "route": {
-    "classification": "constrained_scheduling",
-    "recommended_backend": "cp-sat",
-    "quantum_escalation": "NO"
-  },
-  "backend": "ortools-cp-sat",
-  "solver_status": "OPTIMAL",
-  "runtime_ms": 4.2,
-  "objective": {
-    "name": "minimize_makespan",
-    "value": 7
-  },
-  "verified": true,
-  "violations": [],
-  "solution": {},
-  "metrics": {},
-  "notes": []
-}
-```
+A hybrid-aware sprint can contain:
 
-## Why fingerprints matter
+1. `classical_allocation_baseline`
+2. `classical_baseline_sequencing`
+3. `quantum_hybrid_allocation`
+4. `hybrid_candidate_classical_sequencing`
 
-The normalized problem is hashed before solving. Later benchmark layers can use that fingerprint to associate repeated runs with the same exact input without treating prose descriptions as stable identifiers.
+The hybrid stage is allocation-only. It may propose task-to-agent ownership, but it cannot set start/end times or bypass classical sequencing and final verification.
 
-The fingerprint is not intended to anonymize sensitive data. Do not assume hashing makes a proprietary problem safe to publish.
+## Selection evidence
 
-## Why verification is separate
+ACR always keeps a classical allocation baseline. A hybrid candidate is selected only when:
 
-ACR does not mark a schedule verified merely because CP-SAT returned `OPTIMAL` or `FEASIBLE`.
+- the allocation passes classical validation,
+- CP-SAT can sequence the fixed ownership,
+- the resulting schedule passes independent verification, and
+- the verified result beats the classical baseline under ACR's comparison rule.
 
-The verification layer independently checks the returned assignment against the original ACR problem contract, including:
+Otherwise the final receipt records the classical allocation as selected and preserves the hybrid attempt as stage evidence.
 
-- every required task is present
-- no unknown task is introduced
-- agent eligibility
-- task duration
-- dependency order
-- same-agent overlap
-- shared-file overlap
+## Remote execution evidence
 
-This separation is intentional. Future backends must earn trust through the same contract.
+If remote execution was not explicitly authorized, the hybrid stage records `REMOTE_NOT_AUTHORIZED` rather than silently contacting a provider.
+
+Provider SDK installation therefore does not imply network use, data egress, or spend.
 
 ## Future use
 
-Compute Receipts are designed to become the input to ACR's future benchmark and routing-intelligence layer. With comparable receipts, ACR can eventually answer a stronger question than "which solver usually fits this class?":
+Persistent receipt history can eventually answer a more useful routing question than "what solver sounds appropriate?":
 
-> For problems with this structure and budget, which available backend has actually produced the best verified outcomes?
+> For problems with features like this one, which backend has actually produced the best verified outcomes under the user's latency, cost, privacy, and reliability constraints?
+
+That evidence layer is intended to become the foundation of ACR's future per-instance routing policy.
