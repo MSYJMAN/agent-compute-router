@@ -30,6 +30,7 @@ The project follows Semantic Versioning: `MAJOR.MINOR.PATCH`.
 - `solve` now supports `--allocator hybrid|classical` and optional `--hybrid-seconds`.
 - `full` installs both OR-Tools and D-Wave Ocean SDK 9.x for local/CI model tests; live D-Wave credentials are not required for CI.
 - Release verification installs all optional execution dependencies before publishing.
+- Packaging metadata now uses the SPDX `Apache-2.0` license expression and a modern setuptools minimum, avoiding deprecated license-table/classifier metadata.
 
 ### Evidence policy
 
