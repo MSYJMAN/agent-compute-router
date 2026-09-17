@@ -1,30 +1,50 @@
 # Changelog
 
-All notable changes to Agent Compute Router will be documented in this file.
+All notable changes to Agent Compute Router are documented in this file.
 
 The project follows Semantic Versioning: `MAJOR.MINOR.PATCH`.
 
-- **MAJOR**: incompatible or architectural breaking changes.
-- **MINOR**: backward-compatible features or meaningful capability additions.
-- **PATCH**: backward-compatible bug fixes, docs corrections, or small reliability improvements.
-
 ## [Unreleased]
+
+- Nothing yet.
+
+## [0.2.0] - 2026-09-16
 
 ### Added
 
-- Release governance, templates, and tag-driven GitHub release workflow.
+- Structured scheduling problem IR with validation for tasks, durations, dependencies, eligible agents, and file ownership.
+- Stable SHA-256 problem fingerprints over normalized structured inputs.
+- Classical OR-Tools CP-SAT task-allocation baseline.
+- Optional D-Wave Leap Hybrid CQM task-to-agent allocator.
+- Strict quantum/hybrid boundary: remote compute may choose task ownership only; all timing, precedence, interval sequencing, shared-file locking, and final verification stay classical.
+- Allocation objective that prioritizes maximum agent load, then dependency handoffs and shared-file ownership splits.
+- Classical CP-SAT sequencing with fixed task ownership.
+- Independent allocation verification and final schedule verification.
+- Evidence-based comparison that retains a hybrid allocation only when its verified classical schedule beats the classical baseline.
+- Explicit `--allow-remote` gate before any D-Wave Leap submission.
+- Compute Receipt schema v2 with per-stage evidence.
+- CI guardrail that inspects the CQM and rejects timing/sequencing variables from the hybrid boundary.
 
 ### Changed
 
-- Nothing yet.
+- `solve` now supports `--allocator hybrid|classical` and optional `--hybrid-seconds`.
+- `full` installs both OR-Tools and D-Wave Ocean SDK 9.x for local/CI model tests; live D-Wave credentials are not required for CI.
+- Release verification installs all optional execution dependencies before publishing.
+- Packaging metadata now uses the SPDX `Apache-2.0` license expression and a modern setuptools minimum, avoiding deprecated license-table/classifier metadata.
 
-### Fixed
+### Evidence policy
 
-- Nothing yet.
+- A classical allocation baseline is always computed first.
+- Hybrid allocation must pass classical validation.
+- Hybrid allocation is sequenced by the same classical CP-SAT scheduler as the baseline.
+- Final schedules are independently verified.
+- This release makes no claim of quantum advantage.
 
-### Evidence
+### Known limitations
 
-- Release workflow validates the tag against `pyproject.toml` and runs the test suite before publishing a GitHub Release.
+- A live D-Wave benchmark requires operator-supplied Leap credentials and may incur provider usage/cost.
+- v0.2 supports one optimization family: multi-agent development sprint allocation + scheduling.
+- No persistent receipt database, MCP server, IBM/QAOA execution, or direct QPU execution exists yet.
 
 ## [0.1.0] - 2026-08-14
 
@@ -35,8 +55,3 @@ The project follows Semantic Versioning: `MAJOR.MINOR.PATCH`.
 - Local CLI and JSON output.
 - Explicit quantum-escalation gate.
 - Local-first operation with no cloud or quantum account required.
-
-### Known limitations
-
-- v0.1.0 assesses and routes only.
-- External solvers, GPUs, hybrid services, and QPUs are not executed yet.

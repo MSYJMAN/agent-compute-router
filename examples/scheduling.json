@@ -1,0 +1,44 @@
+{
+  "agents": [
+    "dev-a",
+    "dev-b"
+  ],
+  "tasks": [
+    {
+      "id": "schema",
+      "duration": 3,
+      "files": [
+        "src/schema.py"
+      ]
+    },
+    {
+      "id": "api",
+      "duration": 2,
+      "depends_on": [
+        "schema"
+      ],
+      "files": [
+        "src/api.py"
+      ]
+    },
+    {
+      "id": "ui",
+      "duration": 4,
+      "files": [
+        "src/ui.py"
+      ]
+    },
+    {
+      "id": "tests",
+      "duration": 2,
+      "depends_on": [
+        "api",
+        "ui"
+      ],
+      "files": [
+        "tests/test_app.py"
+      ]
+    }
+  ],
+  "objective": "minimize_makespan"
+}

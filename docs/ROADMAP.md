@@ -8,25 +8,35 @@
 - [x] explicit quantum escalation gate
 - [x] unit tests
 
-## v0.2 — Structured problem IR
+## v0.2 — Verified hybrid sprint pipeline
 
-- [ ] typed variables, constraints, objectives
-- [ ] JSON input schema
-- [ ] explicit evidence fields
-- [ ] explainable routing rules
+- [x] structured scheduling IR
+- [x] stable problem fingerprint
+- [x] classical task-allocation baseline
+- [x] D-Wave Leap Hybrid CQM allocation candidate
+- [x] allocation-only quantum/hybrid boundary
+- [x] fixed-allocation classical CP-SAT sequencing
+- [x] independent allocation verification
+- [x] independent schedule verification
+- [x] Compute Receipt schema v2 with stage evidence
+- [x] explicit remote-compute authorization
+- [x] keep classical baseline when hybrid does not improve the verified result
 
-## v0.3 — First executable classical backends
+## v0.3 — Capability registry
 
-- [ ] graph algorithms
-- [ ] OR-Tools / CP-SAT adapter
-- [ ] Z3 adapter
-- [ ] independent constraint verification
+- [ ] backend health/capability discovery
+- [ ] graph-algorithm execution backend
+- [ ] Z3 / SMT backend
+- [ ] backend abstention reasons
+- [ ] provider cost / remote / privacy metadata
 
-## v0.4 — Benchmark layer
+## v0.4 — Evidence memory
 
-- [ ] run multiple compatible backends
-- [ ] compare runtime, feasibility, objective quality, and cost
-- [ ] persist local benchmark history
+- [ ] persist local Compute Receipt history
+- [ ] compare compatible backends automatically
+- [ ] benchmark runtime, quality, feasibility, and cost
+- [ ] problem-feature fingerprints
+- [ ] evidence-informed per-instance routing
 
 ## v0.5 — Agent/MCP integration
 
@@ -36,20 +46,21 @@
 - [ ] `compute_verify`
 - [ ] `compute_explain`
 
-## v0.6 — Quantum/hybrid adapters
+## Quantum research track
 
-Only after the classical benchmark and verification layers exist:
+Production routing stays classical-first while research can proceed in parallel:
 
-- [ ] Qiskit simulator adapter
-- [ ] D-Wave hybrid adapter
-- [ ] IBM Quantum adapter
-- [ ] explicit spend/permission policy
-- [ ] classical-baseline enforcement
+- [x] ACR Quantum Challenge 001 formulation: multi-agent task allocation
+- [x] D-Wave Hybrid CQM adapter with strict allocation-only boundary
+- [ ] reproducible benchmark suite across task count, agent count, dependency density, file-conflict density, and eligibility sparsity
+- [ ] persistent comparison receipts
+- [ ] IBM/QAOA allocation experiment
+- [ ] warm-start QAOA from a classical relaxation
+- [ ] direct QPU work only after baseline, verifier, cost policy, and meaningful experiment exist
 
-## Research track
+## Later research candidates
 
-- [ ] anonymous problem fingerprints
-- [ ] empirical routing model learned from benchmark history
-- [ ] multi-agent coding-sprint scheduler
-- [ ] test-selection optimizer
-- [ ] dependency-graph optimization benchmarks
+- test-selection optimization under CI budget
+- compute-backend assignment under cost/latency/privacy constraints
+- dependency-graph partitioning
+- multi-worktree conflict minimization
