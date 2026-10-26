@@ -13,11 +13,33 @@ from ..allocation import (
 )
 from ..ir import SchedulingProblem
 from ..models import AllocationBackendResult
+from ..provider import (
+    EXECUTION_ERROR,
+    FEASIBLE,
+    INVALID_SAMPLE,
+    NO_FEASIBLE_SAMPLE,
+    REMOTE_NOT_AUTHORIZED,
+    classify_provider_error,
+    sanitize_provider_message,
+)
 from .cp_sat import BackendUnavailable
 
 
 class BackendExecutionError(RuntimeError):
-    pass
+    """A provider-side failure, carrying a narrow provider state.
+
+    The message is sanitized at construction so an unsanitized provider string
+    can never reach a Compute Receipt by a later code path forgetting to clean it.
+    """
+
+    def __init__(self, message: str, *, state: str = EXECUTION_ERROR) -> None:
+        super().__init__(sanitize_provider_message(message))
+        self.state = state
+
+
+class RemoteNotAuthorized(BackendExecutionError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message, state=REMOTE_NOT_AUTHORIZED)
 
 
 def build_cqm(problem: SchedulingProblem):
@@ -142,10 +164,22 @@ def solve(
     *,
     time_limit: float | None = None,
     sampler_factory: Callable[[], Any] | None = None,
+    allow_remote: bool = False,
 ) -> AllocationBackendResult:
+    """Propose a task-to-agent allocation using a hybrid CQM sampler.
+
+    Contacting the real provider requires ``allow_remote=True``. An injected
+    ``sampler_factory`` is treated as local and needs no authorization, which
+    keeps the unit suite incapable of spending provider credits.
+    """
     cqm = build_cqm(problem)
 
     if sampler_factory is None:
+        if not allow_remote:
+            raise RemoteNotAuthorized(
+                "Remote hybrid execution was not authorized. Re-run with explicit "
+                "remote authorization to contact the provider."
+            )
         try:
             from dwave.system import LeapHybridCQMSampler
         except ImportError as exc:
@@ -170,7 +204,7 @@ def solve(
             if len(feasible) == 0:
                 return AllocationBackendResult(
                     backend="dwave-leap-hybrid-cqm",
-                    status="NO_FEASIBLE_SAMPLE",
+                    status=NO_FEASIBLE_SAMPLE,
                     allocation={},
                     runtime_ms=(perf_counter() - started) * 1000.0,
                     objective_value=None,
@@ -184,8 +218,10 @@ def solve(
             first = feasible.first
             sample = first.sample
             sampler_properties = getattr(sampler, "properties", {}) or {}
+    except BackendExecutionError:
+        raise
     except Exception as exc:
-        raise BackendExecutionError(str(exc)) from exc
+        raise BackendExecutionError(str(exc), state=classify_provider_error(exc)) from exc
 
     allocation: dict[str, str] = {}
     for task in problem.tasks:
@@ -197,7 +233,7 @@ def solve(
         if len(selected) != 1:
             return AllocationBackendResult(
                 backend="dwave-leap-hybrid-cqm",
-                status="INVALID_SAMPLE",
+                status=INVALID_SAMPLE,
                 allocation={},
                 runtime_ms=(perf_counter() - started) * 1000.0,
                 objective_value=None,
@@ -226,7 +262,7 @@ def solve(
 
     return AllocationBackendResult(
         backend="dwave-leap-hybrid-cqm",
-        status="FEASIBLE",
+        status=FEASIBLE,
         allocation=allocation,
         runtime_ms=(perf_counter() - started) * 1000.0,
         objective_value=score["weighted_score"],

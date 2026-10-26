@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .ir import SchedulingProblem
+from .provider import BACKEND_UNAVAILABLE, FEASIBLE, OPTIMAL
 from .router import assess, solve_schedule
 
 
@@ -36,14 +37,20 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     solve_parser.add_argument(
         "--allocator",
-        choices=("hybrid", "classical"),
-        default="hybrid",
-        help="Allocation strategy. Hybrid remains allocation-only (default: hybrid).",
+        choices=("classical", "hybrid"),
+        default="classical",
+        help=(
+            "Allocation strategy (default: classical). 'hybrid' adds an "
+            "allocation-only hybrid candidate and still requires --allow-remote."
+        ),
     )
     solve_parser.add_argument(
         "--allow-remote",
         action="store_true",
-        help="Explicitly authorize remote quantum-hybrid execution.",
+        help=(
+            "Explicitly authorize remote quantum-hybrid execution. Required in "
+            "addition to --allocator hybrid before any provider is contacted."
+        ),
     )
     solve_parser.add_argument(
         "--hybrid-seconds",
@@ -63,6 +70,8 @@ def _print_receipt(receipt) -> None:
     print(f"Status: {receipt.solver_status}")
     print(f"Verified: {receipt.verified}")
     print(f"Quantum escalation: {receipt.route.quantum_escalation}")
+    print(f"Research winner (allocator comparison): {receipt.research_winner}")
+    print(f"Production winner (best verified schedule): {receipt.production_winner}")
     if receipt.objective_value is not None:
         print(f"Objective ({receipt.objective_name}): {receipt.objective_value}")
     if receipt.runtime_ms is not None:
@@ -130,9 +139,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         _print_receipt(receipt)
 
-    if receipt.solver_status == "BACKEND_UNAVAILABLE":
+    if receipt.solver_status == BACKEND_UNAVAILABLE:
         return 3
-    if receipt.verified is True and receipt.solver_status in {"OPTIMAL", "FEASIBLE"}:
+    if receipt.verified is True and receipt.solver_status in {OPTIMAL, FEASIBLE}:
         return 0
     return 4
 

@@ -92,6 +92,8 @@ class ComputeReceipt:
     violations: tuple[str, ...]
     solution: dict[str, TaskAssignment]
     metrics: dict[str, int | float | str | bool]
+    research_winner: str
+    production_winner: str
     notes: tuple[str, ...] = ()
     stages: tuple[ComputeStage, ...] = ()
 
@@ -112,6 +114,10 @@ class ComputeReceipt:
                 for task_id, assignment in sorted(self.solution.items())
             },
             "metrics": dict(self.metrics),
+            "winners": {
+                "research": self.research_winner,
+                "production": self.production_winner,
+            },
             "notes": list(self.notes),
             "stages": [stage.to_dict() for stage in self.stages],
         }
