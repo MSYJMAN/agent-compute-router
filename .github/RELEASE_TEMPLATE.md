@@ -44,10 +44,14 @@ State the next trustworthy milestone, not a speculative feature dump.
 
 Before publishing, confirm:
 
+- [ ] The tagged commit is contained in `main`.
 - [ ] `pyproject.toml` version matches the release tag.
 - [ ] `CHANGELOG.md` contains the release entry.
 - [ ] Relevant tests pass.
+- [ ] The package builds and the **installed wheel** passes
+      `scripts/smoke_installed_wheel.py` in a clean environment.
 - [ ] Known regressions are documented.
 - [ ] New capability has evidence, not only implementation.
 - [ ] No unsupported quantum-advantage claim is present.
+- [ ] External blockers are stated explicitly rather than omitted.
 - [ ] Breaking changes are explicit.

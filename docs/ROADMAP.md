@@ -8,19 +8,27 @@
 - [x] explicit quantum escalation gate
 - [x] unit tests
 
-## v0.2 — Verified hybrid sprint pipeline
+## v0.2 — Verified scheduling + experimental hybrid allocation
+
+Implemented and verified locally. Not yet merged, tagged, or released.
 
 - [x] structured scheduling IR
 - [x] stable problem fingerprint
-- [x] classical task-allocation baseline
+- [x] decomposed classical task-allocation baseline
+- [x] joint classical allocation+timing baseline (`classical_joint_gold`)
 - [x] D-Wave Leap Hybrid CQM allocation candidate
 - [x] allocation-only quantum/hybrid boundary
 - [x] fixed-allocation classical CP-SAT sequencing
 - [x] independent allocation verification
 - [x] independent schedule verification
 - [x] Compute Receipt schema v2 with stage evidence
-- [x] explicit remote-compute authorization
-- [x] keep classical baseline when hybrid does not improve the verified result
+- [x] separate research winner and production winner
+- [x] locally recomputed allocation scores instead of backend-reported values
+- [x] narrow provider state taxonomy
+- [x] credential and path sanitization in receipts
+- [x] explicit remote-compute authorization, enforced in router and backend
+- [x] classical allocator as the default
+- [x] installed-wheel smoke test
 
 ## v0.3 — Capability registry
 
@@ -52,6 +60,12 @@ Production routing stays classical-first while research can proceed in parallel:
 
 - [x] ACR Quantum Challenge 001 formulation: multi-agent task allocation
 - [x] D-Wave Hybrid CQM adapter with strict allocation-only boundary
+- [x] Challenge 001A: local CQM semantic validation with `dimod.ExactCQMSolver`,
+      cross-validated against the independent CP-SAT allocator formulation
+      (local validation, not a quantum computation)
+- [ ] Challenge 001B: local annealing / QUBO experimentation (optional)
+- [ ] Challenge 001C: live D-Wave Hybrid CQM run — blocked by provider API
+      entitlement, not by code
 - [ ] reproducible benchmark suite across task count, agent count, dependency density, file-conflict density, and eligibility sparsity
 - [ ] persistent comparison receipts
 - [ ] IBM/QAOA allocation experiment
