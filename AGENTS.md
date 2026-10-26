@@ -123,7 +123,7 @@ passes.
 
 | Blocker | State | Notes |
 | --- | --- | --- |
-| GitHub Actions | `BLOCKED_BY_ACCOUNT_BILLING` | Previously observed failing jobs started no runner and ran no steps, so they were not evidence of source failure. Re-verify before trusting any CI result. |
+| GitHub Actions | `BLOCKED_BY_ACCOUNT_BILLING` | **Re-verified 2026-10-26** on run 40410271082 (head `1fec6d5`): all 4 jobs concluded `failure` in 3-4 seconds with an empty `runner` field and `steps executed: 0`. No runner was allocated and no step ran, so these failures are not evidence of source failure. Re-check `runner`/step count before trusting or blaming any CI result. |
 | Live D-Wave hybrid | `BLOCKED_BY_PROVIDER_ACCESS` | Trial account lacked solver API entitlement. Challenge 001C stays blocked; 001A covers CQM semantics locally. |
 | `gh` authentication | needs human | `gh` 2.103.2 is installed; `gh auth login` requires browser/MFA and cannot be automated. |
 
@@ -144,7 +144,13 @@ External blockers do not block the rest of the sprint. Route around them.
 - **Python 3.13 added** to CI and classifiers on local evidence (full suite
   passes on 3.13.15 with ortools 9.15.6755).
 - **CI no longer triggers on `push: release/**`** — those commits were running
-  twice, once for push and once for the pull request.
+  twice, once for push and once for the pull request. **Confirmed effective:**
+  commits `29cf16f` and `8484830` each produced two runs; the push of `1fec6d5`
+  produced one (`pull_request` only).
+- **The workflow definition is server-validated.** GitHub parsed the updated
+  `ci.yml` and created the intended job graph (`test (3.11/3.12/3.13)` plus
+  `package`), so the YAML and matrix are accepted. Only execution — and
+  therefore the `@v7` action versions — remains unverified.
 - **`INVALID_SAMPLE` is reachable only via an untrusted sampleset.** A genuine
   CQM marks malformed samples infeasible first, so that path is tested with a
   sampler that falsely claims feasibility.
