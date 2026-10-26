@@ -131,7 +131,10 @@ def build_cqm(problem: SchedulingProblem):
 
     for left, right in dependency_pairs(problem):
         objective.offset += HANDOFF_WEIGHT
-        common = (
+        # Sorted, not set order: the model is currently insertion-order
+        # independent only because every variable is registered earlier in a
+        # deterministic loop. Sorting keeps that true if that changes.
+        common = sorted(
             set(task_by_id[left].eligible_agents)
             & set(task_by_id[right].eligible_agents)
         )
@@ -144,7 +147,10 @@ def build_cqm(problem: SchedulingProblem):
 
     for left, right in file_conflict_pairs(problem):
         objective.offset += FILE_SPLIT_WEIGHT
-        common = (
+        # Sorted, not set order: the model is currently insertion-order
+        # independent only because every variable is registered earlier in a
+        # deterministic loop. Sorting keeps that true if that changes.
+        common = sorted(
             set(task_by_id[left].eligible_agents)
             & set(task_by_id[right].eligible_agents)
         )

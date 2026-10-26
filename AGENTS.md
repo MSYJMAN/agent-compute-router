@@ -75,12 +75,30 @@ CP-SAT allocation   CP-SAT joint             D-Wave Hybrid CQM
    and an offline solver are different facts. Do not collapse them back into a
    single `BACKEND_UNAVAILABLE`.
 
+## Verification evidence (last full run)
+
+| Gate | Result |
+| --- | --- |
+| Full local suite | **99 tests, 0 failures, 0 skipped** |
+| Environment | Python 3.13.15, ortools 9.15.6755, dwave-ocean-sdk 9.5.0, dimod 0.12.22 |
+| Package build | sdist + wheel built |
+| Fresh-wheel smoke | 4/4 checks passed against a clean-venv install |
+| GitHub Actions | never executed — billing blocked |
+| Live D-Wave | never executed — provider entitlement |
+
+The test count is not a target; it is whatever the architectural evidence
+requires. Do not preserve a number.
+
 ## Test commands
 
 ```bash
 python -m pip install -e ".[full]"
 python -m unittest discover -s tests -v
 ```
+
+`tests/test_release_metadata.py` duplicates the release workflow's gates
+(version/changelog agreement, licence completeness, classifier/matrix
+agreement, secret hygiene) so they are verifiable locally while CI is blocked.
 
 Packaging and installed-behaviour evidence:
 
@@ -130,6 +148,16 @@ External blockers do not block the rest of the sprint. Route around them.
 - **`INVALID_SAMPLE` is reachable only via an untrusted sampleset.** A genuine
   CQM marks malformed samples infeasible first, so that path is tested with a
   sampler that falsely claims feasibility.
+- **`agent/release-system` carries no unique work.** `git diff main
+  origin/agent/release-system` is empty; its four commits were already merged
+  into main's "Set up evidence-based release system". It is safe to delete, but
+  deletion is a shared-state action left to the repository owner. Re-verify the
+  empty diff before deleting.
+- **CQM construction is hash-seed independent.** Verified identical variable
+  order, energy and allocation under `PYTHONHASHSEED` 0/1/12345/99999. Set
+  iteration in `build_cqm` is sorted anyway, because that independence
+  currently relies on variables being registered earlier in a deterministic
+  loop.
 
 ## Known defects / open work
 
