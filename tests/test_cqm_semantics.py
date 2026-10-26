@@ -92,6 +92,15 @@ class CqmSemanticsTests(unittest.TestCase):
                 f"hybrid boundary leaked a {token!r} variable",
             )
 
+    def test_constraint_set_is_exactly_assignment_and_load(self):
+        """An exact set, so a timing constraint cannot be added unnoticed."""
+        problem = _problem(SPLIT)
+        cqm, _ = self._solve_exact(problem)
+        expected = {f"assign::{task.id}" for task in problem.tasks} | {
+            f"load::{agent}" for agent in problem.agents
+        }
+        self.assertEqual({str(label) for label in cqm.constraints}, expected)
+
     def test_ineligible_allocation_is_excluded_from_the_model(self):
         problem = _problem(PINNED)
         cqm, _ = self._solve_exact(problem)

@@ -139,20 +139,35 @@ class SchedulingProblem:
 
 
 def _reject_dependency_cycles(tasks: list[TaskSpec]) -> None:
+    """Reject dependency cycles with an explicit stack.
+
+    Iterative rather than recursive: problem files are untrusted input, and a
+    long chain declared dependents-first used to exhaust the interpreter stack
+    and raise RecursionError, which is not a ValueError and so escaped the
+    caller's input validation.
+    """
     dependencies = {task.id: task.depends_on for task in tasks}
-    visiting: set[str] = set()
     visited: set[str] = set()
 
-    def visit(task_id: str) -> None:
-        if task_id in visited:
-            return
-        if task_id in visiting:
-            raise ValueError("task dependency graph contains a cycle")
-        visiting.add(task_id)
-        for dependency in dependencies[task_id]:
-            visit(dependency)
-        visiting.remove(task_id)
-        visited.add(task_id)
-
-    for task in tasks:
-        visit(task.id)
+    for root in dependencies:
+        if root in visited:
+            continue
+        # Each frame is (task, index of the next dependency to walk).
+        stack: list[list] = [[root, 0]]
+        on_path = {root}
+        while stack:
+            frame = stack[-1]
+            task_id, index = frame[0], frame[1]
+            children = dependencies[task_id]
+            if index == len(children):
+                stack.pop()
+                on_path.discard(task_id)
+                visited.add(task_id)
+                continue
+            frame[1] = index + 1
+            dependency = children[index]
+            if dependency in on_path:
+                raise ValueError("task dependency graph contains a cycle")
+            if dependency not in visited:
+                stack.append([dependency, 0])
+                on_path.add(dependency)

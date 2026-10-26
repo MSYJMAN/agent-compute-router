@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from compute_router.backends.dwave_hybrid import (
@@ -40,6 +41,8 @@ from compute_router.router import (
 
 HAS_ORTOOLS = importlib.util.find_spec("ortools") is not None
 HAS_DIMOD = importlib.util.find_spec("dimod") is not None
+
+EXAMPLE_PATH = Path(__file__).resolve().parents[1] / "examples" / "scheduling.json"
 
 # Decomposed allocation is suboptimal here (makespan 12) while the joint model
 # reaches 9. That gap lets a fake hybrid allocator genuinely win the fair
@@ -421,6 +424,43 @@ class HybridComparisonTests(unittest.TestCase):
         self.assertGreater(calls["n"], 0)
         self.assertNotEqual(receipt.production_winner, HYBRID)
         self.assertEqual(receipt.research_winner, CLASSICAL_DECOMPOSED)
+
+
+@unittest.skipUnless(HAS_ORTOOLS, "OR-Tools extra not installed")
+class NoVerifiedScheduleTests(unittest.TestCase):
+    """An unverified schedule must never be emitted as a usable solution."""
+
+    def test_receipt_ships_no_solution_when_nothing_verifies(self):
+        with mock.patch.object(
+            router_module,
+            "verify_schedule",
+            return_value=(False, ("injected rejection",)),
+        ):
+            receipt = solve_schedule(problem_of(GAP_PROBLEM), max_seconds=5)
+
+        self.assertEqual(receipt.production_winner, UNAVAILABLE)
+        self.assertEqual(receipt.solver_status, "NO_VERIFIED_SCHEDULE")
+        self.assertEqual(receipt.solution, {})
+        self.assertIsNone(receipt.objective_value)
+        self.assertFalse(receipt.verified)
+        # The attempts are still preserved as evidence.
+        self.assertTrue(any(s.name == "classical_joint_gold" for s in receipt.stages))
+
+    def test_cli_reports_failure_when_nothing_verifies(self):
+        from compute_router.cli import main
+
+        with mock.patch.object(
+            router_module,
+            "verify_schedule",
+            return_value=(False, ("injected rejection",)),
+        ):
+            import io
+            from contextlib import redirect_stdout
+
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                code = main(["solve", str(EXAMPLE_PATH)])
+        self.assertEqual(code, 4)
 
 
 @unittest.skipUnless(HAS_ORTOOLS, "OR-Tools extra not installed")

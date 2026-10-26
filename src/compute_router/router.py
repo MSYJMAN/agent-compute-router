@@ -474,8 +474,10 @@ def solve_schedule(
         production = eligible[0]
         production_winner = production.name
     else:
-        # Nothing verified. Report the decomposed path's failure as the outcome
-        # rather than inventing a winner.
+        # Nothing passed independent verification. Declare no winner and ship no
+        # schedule: an unverified assignment map must never leave here in the
+        # solution field, where a consumer could mistake it for a usable result.
+        # The failed attempts stay in the stages as evidence.
         production = decomposed_path
         production_winner = UNAVAILABLE
 
@@ -507,20 +509,26 @@ def solve_schedule(
     if hybrid_status is not None:
         metrics["hybrid_status"] = hybrid_status
 
-    schedule = production.schedule
+    verified_schedule = production.schedule if production_winner != UNAVAILABLE else None
     return ComputeReceipt(
         schema_version="2",
         problem_type="constrained_scheduling",
         problem_sha256=problem.fingerprint(),
         route=route,
         backend=production.backend,
-        solver_status=schedule.status if schedule is not None else "NO_VERIFIED_SCHEDULE",
+        solver_status=(
+            verified_schedule.status
+            if verified_schedule is not None
+            else "NO_VERIFIED_SCHEDULE"
+        ),
         runtime_ms=(perf_counter() - started) * 1000.0,
         objective_name=problem.objective,
-        objective_value=schedule.objective_value if schedule is not None else None,
-        verified=production.verified,
+        objective_value=(
+            verified_schedule.objective_value if verified_schedule is not None else None
+        ),
+        verified=production.verified if production_winner != UNAVAILABLE else False,
         violations=production.violations,
-        solution=schedule.assignments if schedule is not None else {},
+        solution=verified_schedule.assignments if verified_schedule is not None else {},
         metrics=metrics,
         notes=tuple(notes),
         stages=tuple(stages),
