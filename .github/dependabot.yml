@@ -1,0 +1,26 @@
+version: 2
+
+updates:
+  # Conservative cadence: this project pins optional solver extras to major
+  # ranges, and a solver upgrade needs benchmark review rather than an
+  # automatic merge.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "ci"

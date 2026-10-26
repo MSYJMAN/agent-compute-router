@@ -16,9 +16,13 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 
+# Ranges are kept wide deliberately. ortools 9.10-9.12 ship no cp313 wheels, so
+# on Python 3.13 pip resolves to 9.13 or newer; narrowing the floor would drop
+# working 3.11/3.12 installations for no benefit.
 [project.optional-dependencies]
 cp-sat = ["ortools>=9.10,<10"]
 quantum-hybrid = ["dwave-ocean-sdk>=9.4,<10"]

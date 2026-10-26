@@ -14,12 +14,28 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          # Full history is required to prove the tag belongs to main.
+          fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+
+      # Without this gate, tagging any commit on any branch -- including an
+      # abandoned release branch -- would publish a release.
+      - name: Verify tag commit is contained in main
+        shell: bash
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "Tag ${GITHUB_REF_NAME} (${GITHUB_SHA}) is not an ancestor of origin/main."
+            echo "Merge the release branch to main before tagging."
+            exit 1
+          fi
+          echo "Ancestry gate passed: ${GITHUB_SHA} is contained in main."
 
       - name: Verify tag matches project version
         shell: bash
@@ -60,6 +76,24 @@ jobs:
 
       - name: Build package artifacts
         run: python -m build
+
+      - name: Verify built artifacts exist and match the tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          test -f "dist/agent_compute_router-${VERSION}.tar.gz" \
+            || { echo "missing sdist for ${VERSION}"; exit 1; }
+          test -f "dist/agent_compute_router-${VERSION}-py3-none-any.whl" \
+            || { echo "missing wheel for ${VERSION}"; exit 1; }
+          ls -l dist/
+
+      - name: Smoke test the built wheel in a clean environment
+        shell: bash
+        run: |
+          python -m venv /tmp/release-smoke
+          /tmp/release-smoke/bin/python -m pip install --upgrade pip
+          /tmp/release-smoke/bin/python -m pip install "$(ls dist/*.whl)[full]"
+          python scripts/smoke_installed_wheel.py /tmp/release-smoke/bin/compute-router
 
       - name: Create GitHub Release
         env:
