@@ -117,6 +117,20 @@ python -m venv /tmp/smoke
 python scripts/smoke_installed_wheel.py /tmp/smoke/bin/compute-router
 ```
 
+Dependency-floor evidence (lowest versions installable on this interpreter,
+rather than the resolved ceiling):
+
+```bash
+python -m venv /tmp/floor
+/tmp/floor/bin/python -m pip install "ortools==9.12.4544" "dwave-ocean-sdk==9.4.0"
+/tmp/floor/bin/python -m pip install --no-deps -e .
+/tmp/floor/bin/python -m unittest discover -s tests
+```
+
+On Python 3.13 use `ortools==9.12.4544` (the lowest cp313 wheel). On 3.11/3.12
+use `ortools==9.10.4067` to exercise the true declared floor — that path has
+never been executed here for lack of an interpreter.
+
 On Windows use `.venv/Scripts/python.exe` and a **short** venv path; the
 default scratch paths exceed the Windows venv path limit.
 
@@ -156,9 +170,29 @@ External blockers do not block the rest of the sprint. Route around them.
   Do not delete that tag. Note that a `git diff main agent/release-system` was
   empty only against the pre-merge `main`; after the v0.2 merge the branch reads
   as far behind `main`, which is expected and is not evidence of lost work.
-- **Dependency ranges kept wide.** `ortools>=9.10,<10` retained even though
-  9.10–9.12 ship no cp313 wheels; pip resolves 9.13+ on Python 3.13, and
-  narrowing the floor would drop working 3.11/3.12 installs.
+- **Dependency ranges kept wide — floor now verified.** `ortools>=9.10,<10`
+  retained, on evidence rather than assumption (2026-10-26):
+  - Wheel tags from the PyPI JSON API: 9.10.4067 and 9.11.4210 ship
+    `cp311`/`cp312` only; **9.12.4544 does ship `cp313`**, as does 9.13.4784.
+    An earlier revision of this file claimed "9.10–9.12 ship no cp313 wheels",
+    which was wrong about 9.12. The lowest cp313-installable ortools is
+    **9.12.4544**, not 9.13.
+  - Full suite **executed** against the floor on 3.13.15 — ortools 9.12.4544,
+    dwave-ocean-sdk 9.4.0, dimod 0.12.22, protobuf 5.29.6 (vs 6.33.6 at the
+    ceiling): **99 tests, 0 failures**.
+  - For the 3.11/3.12 floor (9.10.4067) there is no local interpreter, so the
+    suite could not be run. Instead the 9.10 cp312 wheel was inspected without
+    installing: all 16 CP-SAT symbols this project uses are present
+    (`add`, `add_exactly_one`, `add_max_equality`, `add_no_overlap`, `minimize`,
+    `new_bool_var`, `new_int_var`, `new_interval_var`,
+    `new_optional_interval_var`, `solve`, `value`, `status_name`,
+    `num_branches`, `num_conflicts`, `wall_time`, and `parameters` as an
+    attribute at cp_model.py:3131), as are the three `SatParameters` fields the
+    code sets (`max_time_in_seconds`, `num_search_workers`, `random_seed`).
+    This is static evidence, **not** an executed test: treat the 3.11/3.12
+    floor as PARTIAL, not PASS.
+  - The project uses the snake_case CP-SAT API throughout. That API already
+    exists in 9.10, so the floor is not a PascalCase-era hazard.
 - **Python 3.13 added** to CI and classifiers on local evidence (full suite
   passes on 3.13.15 with ortools 9.15.6755).
 - **CI no longer triggers on `push: release/**`** — those commits were running
@@ -188,8 +222,11 @@ External blockers do not block the rest of the sprint. Route around them.
 - GitHub CI has never executed these workflows; action major versions
   (`checkout@v7`, `setup-python@v7`) are verified to exist and the YAML parses,
   but are **unverified by execution**.
-- Minimum-dependency-version testing is untested locally (only Python 3.13.15
-  is installed on the development machine).
+- Minimum-dependency-version testing is **done for Python 3.13** (floor suite
+  passes; see Important decisions) but remains **PARTIAL overall**: Python 3.11
+  and 3.12 are not installed on this machine, so the 9.10/9.11 floor is
+  supported only by static wheel inspection, never by an executed test. CI
+  would cover this if it could start a runner.
 - Challenge 001B (local annealing/QUBO experimentation) is not started and is
   optional.
 
