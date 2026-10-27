@@ -20,13 +20,21 @@ cannot be made accidentally.
 
 - Implemented: yes
 - Verified locally: yes (see Test commands)
-- Merged to `main`: **no**
-- Tagged: **no**
-- Released: **no**
+- Merged to `main`: **yes** — PR #3, fast-forward `2764fb7..719fac9` on
+  2026-10-26. GitHub reports PR #3 `merged: true`, merge commit `719fac90`.
+- Tagged: **yes** — annotated tag `v0.2.0` at `719fac9`, pushed.
+- Released: **no** — no GitHub Release exists. The tag-triggered `Release`
+  workflow run 40431188274 concluded `failure` in 4 seconds with an empty
+  `runner` field and `steps executed: 0`, so its gates never ran. The release
+  is verified **locally only**; see Current blockers.
 
-Work happens on `release/v0.2.0`, tracked by PR #3. Do **not** create the
-`v0.2.0` tag until the branch is merged to `main`; the release workflow now
-rejects a tag that is not an ancestor of `main`.
+A fast-forward was chosen deliberately so `main` is byte-identical to the
+commit that passed the gates, rather than introducing an unverified merge
+commit. `main` and `release/v0.2.0` are therefore both at `719fac9`.
+
+The `v0.2.0` tag's ancestry gate is satisfied (the tag commit is contained in
+`main`). To publish the release once billing is restored, re-run workflow run
+40431188274 from the Actions UI; the tag does **not** need to be re-pushed.
 
 ## Architectural invariants
 
@@ -138,6 +146,16 @@ External blockers do not block the rest of the sprint. Route around them.
 
 ## Important decisions
 
+- **`agent/release-system` deleted, history archived.** The branch was deleted
+  from `origin` on 2026-10-26. Its four commits had been squash-merged into
+  `main`'s "Set up evidence-based release system", so they were **not** reachable
+  from `main` and deleting the ref would have orphaned them. Before deletion
+  they were preserved as the annotated tag `archive/agent-release-system`
+  (verified to point at exactly the branch head `cf59df3`). Restore with:
+  `git push origin archive/agent-release-system:refs/heads/agent/release-system`.
+  Do not delete that tag. Note that a `git diff main agent/release-system` was
+  empty only against the pre-merge `main`; after the v0.2 merge the branch reads
+  as far behind `main`, which is expected and is not evidence of lost work.
 - **Dependency ranges kept wide.** `ortools>=9.10,<10` retained even though
   9.10–9.12 ship no cp313 wheels; pip resolves 9.13+ on Python 3.13, and
   narrowing the floor would drop working 3.11/3.12 installs.
@@ -177,5 +195,16 @@ External blockers do not block the rest of the sprint. Route around them.
 
 ## Next trustworthy move
 
-Merge `release/v0.2.0` into `main` via PR #3, then tag `v0.2.0` so the release
-workflow's ancestry gate is satisfied. Both steps need GitHub access.
+Publish the GitHub Release for `v0.2.0`. This is blocked only by Actions
+billing: re-run run 40431188274 once billing is restored and let the workflow's
+own gates produce the release and artifacts. Do not hand-create the release and
+do not re-push the tag.
+
+Two follow-ups need a GitHub token (`gh auth login`) and are otherwise ready:
+
+- Post the v0.2.0 evidence ledger as a comment on merged PR #3.
+- Post a scope-evolution status comment on Issue #2 and close it under the
+  release policy. Issue #2's original title covers only "real classical solver
+  execution"; v0.2 grew to include the joint-gold baseline, CQM semantic
+  validation and the provider authorization boundary, so the comment should
+  record that evolution rather than silently rewriting the issue.
